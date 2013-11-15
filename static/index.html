@@ -1,0 +1,90 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+
+<div>
+	<p>EURUSD</p>
+    <pre id="EURUSD"> ...</pre>
+</div>
+ 
+<div>  
+	<p>USDCAD:</p>
+	<pre id="USDCAD">...</pre>
+</div>
+
+<script>
+
+	function getWs(url) {
+	    ws = new WebSocket(url);
+	    ws.onopen = function (event) {
+	        //ws.send('ticks')
+	    }
+	    ws.onmessage = function (event) {
+	        //console.log(event.data)
+	        msg(JSON.parse(event.data));
+	    }
+
+	    ws.onclose = function (event) {
+	        ws = getWs(url);
+	    }
+	    return ws;
+	}
+
+	var ws = getWs("ws://localhost:8080/stream/data");
+
+	var funcs = {
+	    "msg": function (d) {
+	        console.log(d)
+	    },
+	    "ticks": function (d) {
+	        //        console.log(d)
+	        var inst = d[0];
+	        var info = d[1];
+	        var el = document.getElementById(inst)
+	        if (el) 
+	        	el.innerHTML = syntaxHighlight(JSON.stringify(info, undefined, 4));
+
+	    }
+	};
+
+	function msg(d) {
+	    funcs[d.type](d.data);
+	}
+	
+	
+	
+	function syntaxHighlight(json) {
+	    if (typeof json != 'string') {
+	         json = JSON.stringify(json, undefined, 2);
+	    }
+	    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+	        var cls = 'number';
+	        if (/^"/.test(match)) {
+	            if (/:$/.test(match)) {
+	                cls = 'key';
+	            } else {
+	                cls = 'string';
+	            }
+	        } else if (/true|false/.test(match)) {
+	            cls = 'boolean';
+	        } else if (/null/.test(match)) {
+	            cls = 'null';
+	        }
+	        return '<span class="' + cls + '">' + match + '</span>';
+	    });
+	}
+	
+
+</script>
+</body>
+
+
+</html>
+
+
+
+
