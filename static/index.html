@@ -24,7 +24,7 @@
 	    }
 	    ws.onmessage = function (event) {
 	        //console.log(event.data)
-	        msg(JSON.parse(event.data));
+	        processMsg(JSON.parse(event.data));
 	    }
 
 	    ws.onclose = function (event) {
@@ -33,16 +33,20 @@
 	    return ws;
 	}
 
-	var ws = getWs("ws://localhost:8080/stream/data");
+	//var ws = getWs("ws://localhost:8080/stream/data");
+	var ws = getWs("ws://localhost:8080/stream/price"); // 'price' is the beginning name of the Strategy 'PriceStrategy.java', that will run on server
 
 	var funcs = {
 	    "msg": function (d) {
 	        console.log(d)
 	    },
 	    "ticks": function (d) {
-	        //        console.log(d)
+	        
 	        var inst = d[0];
 	        var info = d[1];
+	        
+	        console.log(inst, info.bid)
+	        
 	        var el = document.getElementById(inst)
 	        if (el) 
 	        	el.innerHTML = syntaxHighlight(JSON.stringify(info, undefined, 4));
@@ -50,7 +54,7 @@
 	    }
 	};
 
-	function msg(d) {
+	function processMsg(d) {
 	    funcs[d.type](d.data);
 	}
 	

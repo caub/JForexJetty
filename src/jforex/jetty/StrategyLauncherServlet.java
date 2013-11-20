@@ -35,7 +35,7 @@ public class StrategyLauncherServlet extends HttpServlet {
     			Class<?> clazz = Class.forName("jforex.jetty."+name.substring(0, 1).toUpperCase() + name.substring(1)+"Strategy");
     			
     			if (stop !=null){
-    				for (Entry<Long, IWs> e : WebServer.pids.entrySet()){
+    				for (Entry<Long, IStrategy> e : WebServer.pids.entrySet()){
 	    				if (clazz.equals(e.getValue().getClass())){
 	    					client.stopStrategy(e.getKey());
 	    				}
@@ -47,7 +47,7 @@ public class StrategyLauncherServlet extends HttpServlet {
         	    	
         	    	long pid = client.startStrategy((IStrategy) obj);
         	    	
-        	    	WebServer.pids.put(pid, (IWs) obj);
+        	    	WebServer.pids.put(pid, (IStrategy) obj);
     			}
 			
 			} catch (ClassNotFoundException | IllegalAccessException | InstantiationException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException e1) {
@@ -56,7 +56,7 @@ public class StrategyLauncherServlet extends HttpServlet {
         }
         
         String reply="strats currently running:<br>";	
-    	for (Entry<Long, IWs> e : WebServer.pids.entrySet()){
+    	for (Entry<Long, IStrategy> e : WebServer.pids.entrySet()){
 			reply += e.getKey()+" -> "+e.getValue().getClass().getName()+"<br>";
 		}
 

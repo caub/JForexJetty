@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -13,6 +15,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,8 +48,8 @@ import com.dukascopy.api.system.ClientFactory;
 import com.dukascopy.api.system.IClient;
 import com.google.gson.Gson;
 
-
-public class DataStrategy implements IStrategy, IWs {
+@WebSocket(maxMessageSize = 64 * 1024)
+public class DataStrategy implements IStrategy {
 
 	 private SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm") {{setTimeZone(TimeZone.getTimeZone("GMT"));}};
 	
@@ -171,15 +177,15 @@ public class DataStrategy implements IStrategy, IWs {
 	}
 	
 	public Object Ticks() throws JFException{
-		List<Object[]> l = new ArrayList<Object[]>();
+		Map<String, Object> m = new HashMap<>();
 		for (Instrument i : context.getSubscribedInstruments()){
 			ITick tick = history.getLastTick(i);
 			if (tick!=null)
-				l.add(new Object[]{i.name(), tick.getTime(), tick.getBid(), tick.getAsk()}) ;
+				m.put(i.name(), tick) ;
 			else
-				l.add(new Object[]{i.name(), 0, 0, 0}) ;
+				m.put(i.name(), tick) ;
 		}    
-		return l;
+		return m;
 	}
 
 	public Object Orders() throws JFException{
@@ -252,14 +258,13 @@ public class DataStrategy implements IStrategy, IWs {
 		return Period.ONE_MIN;//default
 	}
 	
+
+	
+	//----------- Websocket code ------
 	
 	Gson gson = new Gson();
 	
 	ConcurrentLinkedQueue<Session> sessions = new ConcurrentLinkedQueue<Session>();
-	
-	public void onConnect(Session session) {
-		sessions.add(session);
-	}
 
 	public void broadcast(String type, Object data) {
 		String msg = gson.toJson(new Message(type, data));
@@ -275,11 +280,6 @@ public class DataStrategy implements IStrategy, IWs {
 
         }
 	}
-
-	public void onClose(Session session, int statusCode, String reason) {
-		sessions.remove(session);
-	}
-	
 	private void send(Session session, Object data){
 		String msg = gson.toJson(new Message("msg", data));
         try {
@@ -288,12 +288,22 @@ public class DataStrategy implements IStrategy, IWs {
 			e.printStackTrace();
 		}
 	}
+	Session session;
 	
-	
-	
-	public void onText(Session session, String msg) throws ClassNotFoundException, IllegalAccessException, InstantiationException, JFException{
+	@OnWebSocketConnect
+    public void onConnect(Session session){
+
+		sessions.add(session);
 		
-		String[] d  = msg.split("/");
+		this.session = session;
+    }
+
+    @OnWebSocketMessage
+    public void onText(String msg) throws ClassNotFoundException, IllegalAccessException, InstantiationException, IOException, JFException {
+    	System.out.println("rec "+msg );
+ 		//session.getRemote().sendString(gson.toJson(new Message("msg", "received and processed by "+strategy)));
+
+    	String[] d  = msg.split("/");
 		switch(d[0]){
 				
 			case "ticks": 			send(session, Ticks()); break;
@@ -309,10 +319,20 @@ public class DataStrategy implements IStrategy, IWs {
 			case "help":  default: send(session, new String[]{"ticks", "subscribe", "close", "open", "sl", "tp", "..."}); break;
 			
 		}
-			
-	}
+    }
+
+    @OnWebSocketClose
+    public void onClose(Session session, int statusCode, String reason) {
+        System.out.println("MyWebSocket.onClose()");
+        
+        sessions.remove(session);
+    } 
+
 	
- // commands strategies
+	
+	
+	
+	// ----  commands strategies -----
 	
 	String randId=UUID.randomUUID().toString().replaceAll("-", "");
 	int count=0;
